@@ -1,3 +1,5 @@
+import copy
+
 import networkx as nx
 
 from database.DAO import DAO
@@ -9,6 +11,8 @@ class Model:
         self._nodes = []
         self._idMapArtist = {}
         self._popolarità = {}
+        self._optPath = []
+        self._optLenght = 0
 
     def getAllGenres(self):
         return DAO.getAllGenres()
@@ -62,3 +66,65 @@ class Model:
         listNodesPesata = sorted(self._graph.edges(data=True), key=lambda x: x[2]["weight"], reverse=True)
 
         return listNodesPesata[0:5]
+
+
+    def findPath(self, a):
+        self._optPath = []
+        self._optLenght = 0
+
+        parziale = [a]
+        for n in self._graph.out_edges(a, data=True):
+            parziale.append(n)
+            self._ricorsione(parziale)
+            parziale.pop()
+        return self._optPath, self._optLenght
+
+    def _ricorsione(self, parziale):
+        if len(list(self._graph.out_edges(parziale[-1]))) == 0:
+            if len(parziale) > self._optLenght:
+                self._optLenght = len(parziale)
+                self._optPath = copy.deepcopy(parziale)
+            return
+        else:
+            for n in self._graph.out_edges(parziale[-1]):
+                if self._graph[parziale[-1]][n]["weight"] > self._graph[parziale[-2]][parziale[-1]]["weight"] and n not in parziale:
+                    parziale.append(n)
+                    self._ricorsione(parziale)
+                    parziale.pop()
+
+    def getBestPath2(self, source):
+
+        self._bestPath = []
+
+        partial = [self._idMap[int(source)]]
+
+        for _, v, data in self._graph.out_edges(self._idMap[int(source)], data=True):
+            partial.append(v)
+
+            self._ricorsione(partial, data["weight"])
+            partial.pop()
+
+        return self._bestPath
+
+    def _ricorsione2(self, partial, lastWeight):
+
+        # update best solution
+        if len(partial) > len(self._bestPath):
+            self._bestPath = copy.deepcopy(partial)
+
+        current = partial[-1]
+
+        for _, successor, data in self._graph.out_edges(current, data=True):
+
+            weight = data["weight"]
+
+            # strictly decreasing weights
+            if weight > lastWeight:
+
+                # simple path
+                if successor not in partial:
+                    partial.append(successor)
+
+                    self._ricorsione(partial, weight)
+
+                    partial.pop()
